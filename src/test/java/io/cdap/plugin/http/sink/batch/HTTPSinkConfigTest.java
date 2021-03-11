@@ -16,13 +16,20 @@
 
 package io.cdap.plugin.http.sink.batch;
 
+import io.cdap.cdap.api.macro.Macros;
+import io.cdap.cdap.api.plugin.PluginProperties;
 import io.cdap.cdap.etl.api.validation.CauseAttributes;
 import io.cdap.cdap.etl.api.validation.ValidationFailure;
 import io.cdap.cdap.etl.mock.validation.MockFailureCollector;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.internal.util.reflection.FieldSetter;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -48,6 +55,7 @@ public class HTTPSinkConfigTest {
     1,
     true
   );
+  private PluginProperties rawProperties;
 
   @Test
   public void testValidConfig() {
@@ -65,6 +73,32 @@ public class HTTPSinkConfigTest {
     MockFailureCollector failureCollector = new MockFailureCollector(MOCK_STAGE);
     config.validate(failureCollector);
     assertPropertyValidationFailed(failureCollector, HTTPSinkConfig.URL);
+  }
+
+  @Test
+  public void testMacroUrl() throws Exception {
+    HTTPSinkConfig config = HTTPSinkConfig.newBuilder(VALID_CONFIG).build();
+
+    Set<String> macroFields = new HashSet<>();
+    macroFields.add(HTTPSinkConfig.URL);
+    Set<String> lookupProperties = new HashSet<>();
+    lookupProperties.add("value");
+    Map<String, String> properties = new HashMap<>();
+    properties.put(HTTPSinkConfig.URL, "url");
+    Macros macros = new Macros(lookupProperties, null);
+    PluginProperties rawProperties = PluginProperties.builder()
+      .addAll(properties)
+      .build()
+      .setMacros(macros);
+
+    FieldSetter fs = new FieldSetter(config, HTTPSinkConfig.class.getSuperclass().getSuperclass()
+      .getDeclaredField("properties"));
+    fs.set(rawProperties);
+
+
+    MockFailureCollector failureCollector = new MockFailureCollector(MOCK_STAGE);
+    config.validate(failureCollector);
+    Assert.assertTrue(failureCollector.getValidationFailures().isEmpty());
   }
 
   @Test
